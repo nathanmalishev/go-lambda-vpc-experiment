@@ -3,6 +3,11 @@ package main
 import (
 	"encoding/json"
 
+  _ "github.com/aws/aws-xray-sdk-go/xray"
+
+  // Importing the plugins enables collection of AWS resource information at runtime.
+  // Every plugin should be imported after "github.com/aws/aws-xray-sdk-go/xray" library.
+
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/nathanmalishev/go-lambda-example/repository"

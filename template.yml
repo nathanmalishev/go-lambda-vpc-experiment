@@ -4,6 +4,8 @@ Resources:
   People:
     Type: AWS::Serverless::Function
     Properties:
+      Policies:
+        - AWSXrayWriteOnlyAccess
       Handler: dist/handler/people
       Runtime: go1.x
       Tracing: Active
@@ -16,6 +18,8 @@ Resources:
   Person:
     Type: AWS::Serverless::Function
     Properties:
+      Policies:
+        - AWSXrayWriteOnlyAccess
       Handler: dist/handler/person
       Runtime: go1.x
       Tracing: Active

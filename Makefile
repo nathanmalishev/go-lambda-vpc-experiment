@@ -16,6 +16,7 @@ install:
 		go get github.com/aws/aws-lambda-go/events
 		go get github.com/aws/aws-lambda-go/lambda
 		go get github.com/stretchr/testify/assert
+		go get github.com/aws/aws-xray-sdk-go/xray
 
 install-dev:
 		go get github.com/awslabs/aws-sam-local
