@@ -6,7 +6,7 @@ clean:
 
 build: clean
 		@for dir in `ls handler`; do \
-			GOOS=linux go build -o dist/handler/$$dir github.com/sbstjn/go-lambda-example/handler/$$dir; \
+			GOOS=linux go build -o dist/handler/$$dir github.com/nathanmalishev/go-lambda-example/handler/$$dir; \
 		done
 
 run:
