@@ -10,7 +10,7 @@ build: clean
 		done
 
 run:
-		aws-sam-local local start-api
+		sam local start-api
 
 install:
 		go get github.com/aws/aws-lambda-go/events
