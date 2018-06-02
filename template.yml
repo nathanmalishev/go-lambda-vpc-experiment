@@ -1,34 +1,150 @@
 AWSTemplateFormatVersion: 2010-09-09
 Transform: AWS::Serverless-2016-10-31
+
+Description: Severless set up with an RDS
+########     ###    ########     ###    ##     ## 
+##     ##   ## ##   ##     ##   ## ##   ###   ### 
+##     ##  ##   ##  ##     ##  ##   ##  #### #### 
+########  ##     ## ########  ##     ## ## ### ## 
+##        ######### ##   ##   ######### ##     ## 
+##        ##     ## ##    ##  ##     ## ##     ## 
+##        ##     ## ##     ## ##     ## ##     ##
+Parameters:
+  dbUserPassword:
+    NoEcho: true
+    Type: String
+  dbUserName:
+    NoEcho: true
+    Type: String
+  DbSize:
+    Type: String
+    Default: db.t2.small
+
+Globals:
+  Function:
+    Runtime: go1.x
+    Timeout: 10
+    Tracing: Active
+    Tags:
+      demo: true
+    Environment:
+      Variables:
+        MY_SQL_URI: !Join ['', [!Ref dbUserName, ':', !Ref dbUserPassword, '@(', !GetAtt DatabaseCluster.Endpoint.Address, ':', !GetAtt DatabaseCluster.Endpoint.Port, ')/mydb']]
+
+##          ###    ##     ## ########  ########     ###    
+##         ## ##   ###   ### ##     ## ##     ##   ## ##   
+##        ##   ##  #### #### ##     ## ##     ##  ##   ##  
+##       ##     ## ## ### ## ########  ##     ## ##     ## 
+##       ######### ##     ## ##     ## ##     ## ######### 
+##       ##     ## ##     ## ##     ## ##     ## ##     ## 
+######## ##     ## ##     ## ########  ########  ##     ## 
+
 Resources:
-  People:
+  Write:
     Type: AWS::Serverless::Function
     Properties:
       Policies:
         - AWSXrayWriteOnlyAccess
-      Handler: dist/handler/people
-      Runtime: go1.x
-      Tracing: Active
+      Handler: dist/handler/write
       Events:
         GetEvent:
           Type: Api
           Properties:
-            Path: /people
+            Path: /write
             Method: get
-  Person:
+  Read:
     Type: AWS::Serverless::Function
     Properties:
       Policies:
         - AWSXrayWriteOnlyAccess
-      Handler: dist/handler/person
-      Runtime: go1.x
-      Tracing: Active
+      Handler: dist/handler/read
       Events:
         GetEvent:
           Type: Api
           Properties:
-            Path: /person/{id}
+            Path: /read
             Method: get
+
+######## ########  ####  ######    ######   ######## ########  
+   ##    ##     ##  ##  ##    ##  ##    ##  ##       ##     ## 
+   ##    ##     ##  ##  ##        ##        ##       ##     ## 
+   ##    ########   ##  ##   #### ##   #### ######   ########  
+   ##    ##   ##    ##  ##    ##  ##    ##  ##       ##   ##   
+   ##    ##    ##   ##  ##    ##  ##    ##  ##       ##    ##  
+   ##    ##     ## ####  ######    ######   ######## ##     ## 
+  Trigger:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: 'Triggers cold starts'
+      ScheduleExpression: "rate(1 hour)"
+      State: "ENABLED"
+      Targets: 
+        -
+          Arn: !GetAtt Write.Arn
+          Id: "WriteTrigger"
+        -
+          Arn: !GetAtt Read.Arn
+          Id: "ReadTrigger"
+  PermissonForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: "Read"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: 
+        Fn::GetAtt: 
+          - "Trigger"
+          - "Arn"
+  PermissonForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: 
+        Ref: "Write"
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: 
+        Fn::GetAtt: 
+          - "Trigger"
+          - "Arn"
+
+########  ########   ######  
+##     ## ##     ## ##    ## 
+##     ## ##     ## ##       
+########  ##     ##  ######  
+##   ##   ##     ##       ## 
+##    ##  ##     ## ##    ## 
+##     ## ########   ######  
+
+  PublicDatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CloudFormation managed DB subnet group.
+      SubnetIds: !Split [ ',',  !ImportValue LambdaVPCExperiementPublicSubnets]
+  DatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      MasterUsername: !Ref dbUserName
+      MasterUserPassword: !Ref dbUserPassword
+      Engine: aurora
+      DBSubnetGroupName: !Ref PublicDatabaseSubnetGroup
+  DatabasePrimaryInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: aurora
+      DBClusterIdentifier: !Ref "DatabaseCluster"
+      DBInstanceClass: !Ref DbSize
+      DBSubnetGroupName: !Ref PublicDatabaseSubnetGroup
+      PubliclyAccessible: true
+
+ #######  ##     ## ######## ########  ##     ## ######## 
+##     ## ##     ##    ##    ##     ## ##     ##    ##    
+##     ## ##     ##    ##    ##     ## ##     ##    ##    
+##     ## ##     ##    ##    ########  ##     ##    ##    
+##     ## ##     ##    ##    ##        ##     ##    ##    
+##     ## ##     ##    ##    ##        ##     ##    ##    
+ #######   #######     ##    ##         #######     ## 
+
 Outputs:
   URL:
     Description: URL for HTTPS Endpoint
