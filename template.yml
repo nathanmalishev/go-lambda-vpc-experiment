@@ -85,26 +85,26 @@ Resources:
         -
           Arn: !GetAtt Read.Arn
           Id: "ReadTrigger"
-  PermissonForEventsToInvokeLambda:
+  PermissonForEventsToInvokeReadLambda:
     Type: AWS::Lambda::Permission
     Properties: 
-      FunctionName: 
-        Ref: "Read"
+      FunctionName: !GetAtt
+        - Read
+        - Arn
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
-      SourceArn: 
-        Fn::GetAtt: 
+      SourceArn: !GetAtt
           - "Trigger"
           - "Arn"
-  PermissonForEventsToInvokeLambda:
+  PermissonForEventsToInvokeWriteLambda:
     Type: AWS::Lambda::Permission
     Properties: 
-      FunctionName: 
-        Ref: "Write"
+      FunctionName: !GetAtt
+        - Write
+        - Arn
       Action: "lambda:InvokeFunction"
       Principal: "events.amazonaws.com"
-      SourceArn: 
-        Fn::GetAtt: 
+      SourceArn: !GetAtt
           - "Trigger"
           - "Arn"
 
