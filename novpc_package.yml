@@ -50,7 +50,7 @@ Resources:
   DatabaseCluster:
     Properties:
       DBSubnetGroupName:
-        Ref: PrivateDatabaseSubnetGroup
+        Ref: PublicDatabaseSubnetGroup
       Engine: aurora
       MasterUserPassword:
         Ref: dbUserPassword
@@ -64,50 +64,10 @@ Resources:
       DBInstanceClass:
         Ref: DbSize
       DBSubnetGroupName:
-        Ref: PrivateDatabaseSubnetGroup
+        Ref: PublicDatabaseSubnetGroup
       Engine: aurora
-      PubliclyAccessible: false
+      PubliclyAccessible: true
     Type: AWS::RDS::DBInstance
-  Init:
-    Properties:
-      CodeUri: s3://lambda-code-azn/c3977989ff4c22b54c7bc7f184b11148
-      Environment:
-        Variables:
-          MY_SQL_URI:
-            Fn::Join:
-            - ''
-            - - Ref: dbUserName
-              - ':'
-              - Ref: dbUserPassword
-              - '@('
-              - Fn::GetAtt:
-                - DatabaseCluster
-                - Endpoint.Address
-              - ':'
-              - Fn::GetAtt:
-                - DatabaseCluster
-                - Endpoint.Port
-              - )/
-      Events:
-        GetEvent:
-          Properties:
-            Method: get
-            Path: /init
-          Type: Api
-      Handler: dist/handler/init
-      Policies:
-      - AWSXrayWriteOnlyAccess
-      - AWSLambdaVPCAccessExecutionRole
-      VpcConfig:
-        SecurityGroupIds:
-          Fn::Split:
-          - ','
-          - Fn::ImportValue: LambdaVPCExperiementSecurityGroup
-        SubnetIds:
-          Fn::Split:
-          - ','
-          - Fn::ImportValue: LambdaVPCExperiementPrivateSubnets
-    Type: AWS::Serverless::Function
   PermissonForEventsToInvokeReadLambda:
     Properties:
       Action: lambda:InvokeFunction
@@ -134,17 +94,17 @@ Resources:
         - Trigger
         - Arn
     Type: AWS::Lambda::Permission
-  PrivateDatabaseSubnetGroup:
+  PublicDatabaseSubnetGroup:
     Properties:
       DBSubnetGroupDescription: CloudFormation managed DB subnet group.
       SubnetIds:
         Fn::Split:
         - ','
-        - Fn::ImportValue: LambdaVPCExperiementPrivateSubnets
+        - Fn::ImportValue: LambdaVPCExperiementPublicSubnets
     Type: AWS::RDS::DBSubnetGroup
   Read:
     Properties:
-      CodeUri: s3://lambda-code-azn/c3977989ff4c22b54c7bc7f184b11148
+      CodeUri: s3://lambda-code-azn/0c50c12ba15e7389eeace53033aa9a17
       Events:
         GetEvent:
           Properties:
@@ -154,16 +114,6 @@ Resources:
       Handler: dist/handler/read
       Policies:
       - AWSXrayWriteOnlyAccess
-      - AWSLambdaVPCAccessExecutionRole
-      VpcConfig:
-        SecurityGroupIds:
-          Fn::Split:
-          - ','
-          - Fn::ImportValue: LambdaVPCExperiementSecurityGroup
-        SubnetIds:
-          Fn::Split:
-          - ','
-          - Fn::ImportValue: LambdaVPCExperiementPrivateSubnets
     Type: AWS::Serverless::Function
   Trigger:
     Properties:
@@ -184,7 +134,7 @@ Resources:
     Type: AWS::Events::Rule
   Write:
     Properties:
-      CodeUri: s3://lambda-code-azn/c3977989ff4c22b54c7bc7f184b11148
+      CodeUri: s3://lambda-code-azn/0c50c12ba15e7389eeace53033aa9a17
       Events:
         GetEvent:
           Properties:
@@ -194,15 +144,5 @@ Resources:
       Handler: dist/handler/write
       Policies:
       - AWSXrayWriteOnlyAccess
-      - AWSLambdaVPCAccessExecutionRole
-      VpcConfig:
-        SecurityGroupIds:
-          Fn::Split:
-          - ','
-          - Fn::ImportValue: LambdaVPCExperiementSecurityGroup
-        SubnetIds:
-          Fn::Split:
-          - ','
-          - Fn::ImportValue: LambdaVPCExperiementPrivateSubnets
     Type: AWS::Serverless::Function
 Transform: AWS::Serverless-2016-10-31

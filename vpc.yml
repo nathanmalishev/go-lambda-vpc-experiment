@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: AWS::Serverless-2016-10-31
+
+Description: Severless set up with an RDS
+########     ###    ########     ###    ##     ## 
+##     ##   ## ##   ##     ##   ## ##   ###   ### 
+##     ##  ##   ##  ##     ##  ##   ##  #### #### 
+########  ##     ## ########  ##     ## ## ### ## 
+##        ######### ##   ##   ######### ##     ## 
+##        ##     ## ##    ##  ##     ## ##     ## 
+##        ##     ## ##     ## ##     ## ##     ##
+Parameters:
+  dbUserPassword:
+    NoEcho: true
+    Type: String
+  dbUserName:
+    NoEcho: true
+    Type: String
+  DbSize:
+    Type: String
+    Default: db.t2.small
+
+Globals:
+  Function:
+    Runtime: go1.x
+    Timeout: 10
+    Tracing: Active
+    Tags:
+      demo: true
+    Environment:
+      Variables:
+        MY_SQL_URI: !Join ['', [!Ref dbUserName, ':', !Ref dbUserPassword, '@(', !GetAtt DatabaseCluster.Endpoint.Address, ':', !GetAtt DatabaseCluster.Endpoint.Port, ')/mydb']]
+
+##          ###    ##     ## ########  ########     ###    
+##         ## ##   ###   ### ##     ## ##     ##   ## ##   
+##        ##   ##  #### #### ##     ## ##     ##  ##   ##  
+##       ##     ## ## ### ## ########  ##     ## ##     ## 
+##       ######### ##     ## ##     ## ##     ## ######### 
+##       ##     ## ##     ## ##     ## ##     ## ##     ## 
+######## ##     ## ##     ## ########  ########  ##     ## 
+
+Resources:
+  Init:
+    Type: AWS::Serverless::Function
+    Properties:
+      VpcConfig:
+        SecurityGroupIds: !Split [ ',', !ImportValue LambdaVPCExperiementSecurityGroup]
+        SubnetIds: !Split [ ',',  !ImportValue LambdaVPCExperiementPrivateSubnets]
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaVPCAccessExecutionRole
+      Handler: dist/handler/init
+      Environment:
+        Variables:
+          MY_SQL_URI: !Join ['', [!Ref dbUserName, ':', !Ref dbUserPassword, '@(', !GetAtt DatabaseCluster.Endpoint.Address, ':', !GetAtt DatabaseCluster.Endpoint.Port, ')/']]
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /init
+            Method: get
+  Write:
+    Type: AWS::Serverless::Function
+    Properties:
+      VpcConfig:
+        SecurityGroupIds: !Split [ ',', !ImportValue LambdaVPCExperiementSecurityGroup]
+        SubnetIds: !Split [ ',',  !ImportValue LambdaVPCExperiementPrivateSubnets]
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaVPCAccessExecutionRole
+      Handler: dist/handler/write
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /write
+            Method: get
+  Read:
+    Type: AWS::Serverless::Function
+    Properties:
+      VpcConfig:
+        SecurityGroupIds: !Split [ ',', !ImportValue LambdaVPCExperiementSecurityGroup]
+        SubnetIds: !Split [ ',',  !ImportValue LambdaVPCExperiementPrivateSubnets]
+      Policies:
+        - AWSXrayWriteOnlyAccess
+        - AWSLambdaVPCAccessExecutionRole
+      Handler: dist/handler/read
+      Events:
+        GetEvent:
+          Type: Api
+          Properties:
+            Path: /read
+            Method: get
+
+######## ########  ####  ######    ######   ######## ########  
+   ##    ##     ##  ##  ##    ##  ##    ##  ##       ##     ## 
+   ##    ##     ##  ##  ##        ##        ##       ##     ## 
+   ##    ########   ##  ##   #### ##   #### ######   ########  
+   ##    ##   ##    ##  ##    ##  ##    ##  ##       ##   ##   
+   ##    ##    ##   ##  ##    ##  ##    ##  ##       ##    ##  
+   ##    ##     ## ####  ######    ######   ######## ##     ## 
+  Trigger:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: 'Triggers cold starts'
+      ScheduleExpression: "rate(1 hour)"
+      State: "ENABLED"
+      Targets: 
+        -
+          Arn: !GetAtt Write.Arn
+          Id: "WriteTrigger"
+        -
+          Arn: !GetAtt Read.Arn
+          Id: "ReadTrigger"
+  PermissonForEventsToInvokeReadLambda:
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !GetAtt
+        - Read
+        - Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt
+          - "Trigger"
+          - "Arn"
+  PermissonForEventsToInvokeWriteLambda:
+    Type: AWS::Lambda::Permission
+    Properties: 
+      FunctionName: !GetAtt
+        - Write
+        - Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt
+          - "Trigger"
+          - "Arn"
+
+########  ########   ######  
+##     ## ##     ## ##    ## 
+##     ## ##     ## ##       
+########  ##     ##  ######  
+##   ##   ##     ##       ## 
+##    ##  ##     ## ##    ## 
+##     ## ########   ######  
+
+  PrivateDatabaseSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: CloudFormation managed DB subnet group.
+      SubnetIds: !Split [ ',',  !ImportValue LambdaVPCExperiementPrivateSubnets]
+  DatabaseCluster:
+    Type: AWS::RDS::DBCluster
+    Properties:
+      MasterUsername: !Ref dbUserName
+      MasterUserPassword: !Ref dbUserPassword
+      Engine: aurora
+      DBSubnetGroupName: !Ref PrivateDatabaseSubnetGroup
+  DatabasePrimaryInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      Engine: aurora
+      DBClusterIdentifier: !Ref "DatabaseCluster"
+      DBInstanceClass: !Ref DbSize
+      DBSubnetGroupName: !Ref PrivateDatabaseSubnetGroup
+      PubliclyAccessible: false
+
+ #######  ##     ## ######## ########  ##     ## ######## 
+##     ## ##     ##    ##    ##     ## ##     ##    ##    
+##     ## ##     ##    ##    ##     ## ##     ##    ##    
+##     ## ##     ##    ##    ########  ##     ##    ##    
+##     ## ##     ##    ##    ##        ##     ##    ##    
+##     ## ##     ##    ##    ##        ##     ##    ##    
+ #######   #######     ##    ##         #######     ## 
+
+Outputs:
+  URL:
+    Description: URL for HTTPS Endpoint
+    Value:
+      Fn::Join:
+        - ''
+        - - https://
+          - Ref: ServerlessRestApi
+          - ".execute-api."
+          - Ref: AWS::Region
+          - ".amazonaws.com/"
+          - Ref: ServerlessRestApiProdStage

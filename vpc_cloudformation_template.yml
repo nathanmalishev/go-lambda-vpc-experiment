@@ -242,3 +242,5 @@ Outputs:
   NoIngressSecurityGroup:
     Description: Security group with no ingress rule
     Value: !Ref NoIngressSecurityGroup
+    Export:
+      Name: LambdaVPCExperiementSecurityGroup

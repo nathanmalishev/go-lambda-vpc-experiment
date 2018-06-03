@@ -34,40 +34,56 @@ configure:
 			--region $(AWS_REGION) \
 			--create-bucket-configuration LocationConstraint=$(AWS_REGION)
 
-package: build
-		@aws cloudformation package \
-			--template-file template.yml \
-			--s3-bucket $(AWS_BUCKET_NAME) \
-			--region $(AWS_REGION) \
-			--output-template-file package.yml
 
 packageVPC:
 		@aws cloudformation package \
 			--template-file vpc_cloudformation_template.yml \
 			--s3-bucket $(AWS_BUCKET_NAME) \
 			--region $(AWS_REGION) \
-			--output-template-file vpc_package.yml
+			--output-template-file vpc_cloudformation_template_package.yml
 
-buildVPC:
+deployVPC:
 		@aws cloudformation deploy \
-			--template-file vpc_package.yml \
+			--template-file vpc_cloudformation_template_package.yml \
 			--region $(AWS_REGION) \
 			--capabilities CAPABILITY_IAM \
 			--parameter-overrides $(PARAMETER_OVERRIDES_VPC) \
 			--stack-name $(AWS_STACK_NAME_VPC)
 
-deploy:
+packageLambda: build
+		@aws cloudformation package \
+			--template-file novpc.yml \
+			--s3-bucket $(AWS_BUCKET_NAME) \
+			--region $(AWS_REGION) \
+			--output-template-file novpc_package.yml
+
+deployLambda:
 		@aws cloudformation deploy \
-			--template-file package.yml \
+			--template-file novpc_package.yml \
 			--region $(AWS_REGION) \
 			--capabilities CAPABILITY_IAM \
 			--parameter-overrides $(PARAMETER_OVERRIDES) \
-			--stack-name $(AWS_STACK_NAME)
+			--stack-name $(AWS_STACK_NAME_LAMBDA)
+
+packageLambdaVpc: build
+		@aws cloudformation package \
+			--template-file vpc.yml \
+			--s3-bucket $(AWS_BUCKET_NAME) \
+			--region $(AWS_REGION) \
+			--output-template-file vpc_package.yml
+
+deployLambdaVpc:
+		@aws cloudformation deploy \
+			--template-file vpc_package.yml \
+			--region $(AWS_REGION) \
+			--capabilities CAPABILITY_IAM \
+			--parameter-overrides $(PARAMETER_OVERRIDES) \
+			--stack-name $(AWS_STACK_NAME_LAMBDA_VPC)
 
 describe:
 		@aws cloudformation describe-stacks \
 			--region $(AWS_REGION) \
-			--stack-name $(AWS_STACK_NAME) \
+			--stack-name $(AWS_STACK_NAME_LAMBDA_VPC) \
 
 outputs:
 		@make describe | jq -r '.Stacks[0].Outputs'
