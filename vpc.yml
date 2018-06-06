@@ -25,6 +25,7 @@ Globals:
     Runtime: go1.x
     Timeout: 10
     Tracing: Active
+    MemorySize: 158
     Tags:
       demo: true
     Environment:
